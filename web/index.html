@@ -57,7 +57,7 @@
   .brand .name{ font-size:22px; font-weight:700; }
   .brand .name span{ color:var(--tomato); }
 
-  .admin-toggle{
+  .account-area{
     display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap;
   }
   .welcome-actions{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -70,7 +70,6 @@
   .btn:active{ transform:translate(0,0); box-shadow:1px 1px 0 var(--ink); }
   .btn.primary{ background:var(--tomato); color:white; border-color:var(--tomato-deep); box-shadow:3px 3px 0 var(--tomato-deep); }
   .btn.primary:hover{ box-shadow:5px 5px 0 var(--tomato-deep); }
-  .btn.admin-on{ background:var(--sky); color:white; border-color:#256777; box-shadow:3px 3px 0 #256777; }
   .btn.ghost{ background:transparent; box-shadow:none; border-color:transparent; text-decoration:underline; padding:9px 8px; }
   .btn.small{ padding:6px 10px; font-size:12px; }
   .btn:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible{
@@ -286,7 +285,7 @@
   @media (max-width:560px){
     .form-grid{ grid-template-columns:1fr; }
     header.top{ padding:12px 16px; align-items:flex-start; flex-wrap:wrap; }
-    .admin-toggle{ justify-content:flex-start; width:100%; gap:8px; }
+    .account-area{ justify-content:flex-start; width:100%; gap:8px; }
     .brand .name{ font-size:18px; }
   }
 
@@ -304,10 +303,6 @@
 .ai-msg.ai{background:#f2f2f2}
 .ai-row{display:flex;gap:8px}
 .ai-row input{flex:1}
-.admin-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.admin-tool{border:1px solid var(--border,#ddd);border-radius:14px;padding:15px}
-.user-status{font-size:12px;font-weight:700}
-.status-free{color:#666}.status-pro{color:#a66b00}.status-banned{color:#b00020}
 
 
 .age-gate{position:fixed;inset:0;background:rgba(20,16,12,.62);display:flex;align-items:center;justify-content:center;z-index:10000;padding:20px}
@@ -354,7 +349,7 @@
     <div class="mark">🍳</div>
     <div class="name">Chef<span>Creators</span></div>
   </div>
-  <div class="admin-toggle">
+  <div class="account-area">
     <div class="welcome-actions">
       <span class="greeting-label" id="greetingLabel"></span>
       <button class="btn profile-action-btn profile-edit-btn" id="editProfileBtn" type="button">Change Name &amp; Age</button>
@@ -391,9 +386,6 @@
 </div>
 
 <main>
-  <div id="addRecipeRow" style="display:none; margin-bottom:18px;">
-    <button class="btn primary" id="addRecipeBtn">+ Add a recipe</button>
-  </div>
   <div class="grid" id="recipeGrid"></div>
   <div class="empty" id="emptyState" style="display:none;">
     <div class="big">🥄</div>
@@ -403,17 +395,12 @@
 
 <footer>
   ChefCreators is a personal recipe box, not a professional cooking service. Kids should always cook with a grown-up nearby for stove, oven, or knife steps.
-  <div class="mono">local admin build · your data stays in your account</div>
+  <div class="mono">Your recipes and profile stay in your browser.</div>
 </footer>
 
 <!-- Recipe detail modal -->
 <div class="overlay" id="detailOverlay">
   <div class="modal" id="detailModal"></div>
-</div>
-
-<!-- Admin edit modal -->
-<div class="overlay" id="editOverlay">
-  <div class="modal" id="editModal"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -3885,8 +3872,6 @@ let activeDifficulty = 'all';
 let activeTraditional = false;
 let activeGroupBy = 'category';
 let searchTerm = '';
-let adminMode = false;
-let editingId = null;
 let savedKidAge = Number(localStorage.getItem('chefcreators-age') || 0);
 let userAgeGroup = savedKidAge >= 5 ? (savedKidAge <= 9 ? 'young' : savedKidAge <= 15 ? 'teen' : 'adult') : '';
 
@@ -4053,7 +4038,7 @@ editProfileBtn?.addEventListener('click', openProfileEditor);
 editProfileStatusBtn?.addEventListener('click', openProfileEditor);
 
 function recipeAllowedForAge(r){
-  if(adminMode || !userAgeGroup) return true;
+  if(!userAgeGroup) return true;
   const minAge = Number(String(r.age || '').match(/\d+/)?.[0] || 0);
   if(minAge && savedKidAge && savedKidAge < minAge) return false;
   if(userAgeGroup==='young') return r.difficulty==='easy';
@@ -4189,7 +4174,7 @@ function renderGrid(){
   const freeIds = new Set(recipes.slice(0, Math.ceil(recipes.length/2)).map(r=>r.id));
   recipes.filter(r=>String(r.id||'').startsWith('me')).forEach(r=>freeIds.add(r.id));
   const filtered = recipes.filter(r=>{
-    if(!adminMode && !isPro && !freeIds.has(r.id)) return false;
+    if(!isPro && !freeIds.has(r.id)) return false;
     if(!recipeAllowedForAge(r)) return false;
     if(activeCategory!=='all' && r.category!==activeCategory) return false;
     if(activeDifficulty!=='all' && r.difficulty!==activeDifficulty) return false;
@@ -4201,7 +4186,6 @@ function renderGrid(){
 
   grid.innerHTML = '';
   grid.className = 'grid';
-  document.getElementById('addRecipeRow').style.display = adminMode ? 'block' : 'none';
 
   if(filtered.length===0){
     emptyState.style.display='block';
@@ -4237,18 +4221,6 @@ function renderGrid(){
       </div>
     `;
     card.addEventListener('click', (e)=>{ openDetail(r.id); });
-    if(adminMode){
-      const actions = document.createElement('div');
-      actions.className = 'card-actions';
-      const editBtn = document.createElement('button');
-      editBtn.className='btn small'; editBtn.textContent='✏️ Edit';
-      editBtn.onclick = (e)=>{ e.stopPropagation(); openEdit(r.id); };
-      const delBtn = document.createElement('button');
-      delBtn.className='btn small'; delBtn.textContent='🗑️ Delete';
-      delBtn.onclick = (e)=>{ e.stopPropagation(); deleteRecipe(r.id); };
-      actions.appendChild(editBtn); actions.appendChild(delBtn);
-      card.appendChild(actions);
-    }
     grid.appendChild(card);
   });
 }
@@ -4360,136 +4332,6 @@ function openDetail(id){
 function closeDetail(){ detailOverlay.classList.remove('show'); }
 detailOverlay.addEventListener('click', (e)=>{ if(e.target===detailOverlay) closeDetail(); });
 
-/* ---------- Admin: PIN gate ---------- */
-
-
-document.getElementById('addRecipeBtn').addEventListener('click', ()=> openEdit(null));
-
-/* ---------- Admin: add / edit form ---------- */
-const editOverlay = document.getElementById('editOverlay');
-const editModal = document.getElementById('editModal');
-
-function openEdit(id){
-  editingId = id;
-  const r = id ? recipes.find(x=>x.id===id) : {
-    title:'', icon:'🍽️', category:'main', cuisine:'World', traditional:false, difficulty:'medium', age:'10+', time:'', servings:'',
-    ingredients:[], steps:[], tips:'', needsHeat:false, needsKnife:false
-  };
-  editModal.innerHTML = `
-    <button class="close" id="closeEdit" aria-label="Close">✕</button>
-    <h2>${id? 'Edit recipe' : 'Add a new recipe'}</h2>
-    <div class="form-grid">
-      <div class="field full">
-        <label for="f-title">Recipe name</label>
-        <input type="text" id="f-title" value="${escapeAttr(r.title)}" placeholder="e.g. Cheesy Quesadillas">
-      </div>
-      <div class="field">
-        <label for="f-icon">Emoji icon</label>
-        <input type="text" id="f-icon" value="${escapeAttr(r.icon)}" placeholder="🌮">
-      </div>
-      <div class="field">
-        <label for="f-category">Category</label>
-        <select id="f-category">${CATS.map(c=>`<option value="${c.id}" ${r.category===c.id?'selected':''}>${c.label}</option>`).join('')}</select>
-      </div>
-      <div class="field">
-        <label for="f-cuisine">Cuisine / Country</label>
-        <input type="text" id="f-cuisine" value="${escapeAttr(r.cuisine||'World')}" placeholder="e.g. Lebanese">
-      </div>
-      <div class="field">
-        <label><input type="checkbox" id="f-traditional" ${r.traditional?'checked':''}> Traditional dish</label>
-      </div>
-      <div class="field">
-        <label for="f-difficulty">Difficulty</label>
-        <select id="f-difficulty">${Object.keys(DIFF).map(k=>`<option value="${k}" ${r.difficulty===k?'selected':''}>${DIFF[k].label}</option>`).join('')}</select>
-      </div>
-      <div class="field">
-        <label for="f-age">Recommended age</label>
-        <input type="text" id="f-age" value="${escapeAttr(r.age)}" placeholder="8+">
-      </div>
-      <div class="field">
-        <label for="f-time">Time</label>
-        <input type="text" id="f-time" value="${escapeAttr(r.time)}" placeholder="20 min">
-      </div>
-      <div class="field">
-        <label for="f-servings">Servings</label>
-        <input type="text" id="f-servings" value="${escapeAttr(r.servings)}" placeholder="4">
-      </div>
-      <div class="field full">
-        <label for="f-ingredients">Ingredients (one per line)</label>
-        <textarea id="f-ingredients">${(r.ingredients||[]).join('\n')}</textarea>
-      </div>
-      <div class="field full">
-        <label for="f-steps">Steps (one per line)</label>
-        <textarea id="f-steps">${(r.steps||[]).join('\n')}</textarea>
-      </div>
-      <div class="field full">
-        <label for="f-tips">Tip (optional)</label>
-        <input type="text" id="f-tips" value="${escapeAttr(r.tips||'')}" placeholder="A helpful hint for young chefs">
-      </div>
-      <div class="field">
-        <label><input type="checkbox" id="f-heat" ${r.needsHeat?'checked':''}> Uses stove/oven</label>
-      </div>
-      <div class="field">
-        <label><input type="checkbox" id="f-knife" ${r.needsKnife?'checked':''}> Involves cutting</label>
-      </div>
-    </div>
-    <div class="hint">Safety checkboxes control the warning shown to kids on the recipe page.</div>
-    <div class="form-actions">
-      <button class="btn ghost" id="cancelEdit">Cancel</button>
-      <button class="btn primary" id="saveEdit">${id? 'Save changes' : 'Add recipe'}</button>
-    </div>
-  `;
-  editOverlay.classList.add('show');
-  document.getElementById('closeEdit').onclick = closeEdit;
-  document.getElementById('cancelEdit').onclick = closeEdit;
-  document.getElementById('saveEdit').onclick = saveEdit;
-}
-function closeEdit(){ editOverlay.classList.remove('show'); editingId=null; }
-editOverlay.addEventListener('click', (e)=>{ if(e.target===editOverlay) closeEdit(); });
-
-function escapeAttr(s){ return (s||'').replace(/"/g,'&quot;'); }
-
-async function saveEdit(){
-  const title = document.getElementById('f-title').value.trim();
-  if(!title){ showToast('Please give the recipe a name'); return; }
-  const data = {
-    id: editingId || ('r'+Date.now()),
-    title,
-    icon: document.getElementById('f-icon').value.trim() || '🍽️',
-    category: document.getElementById('f-category').value,
-    difficulty: document.getElementById('f-difficulty').value,
-    age: document.getElementById('f-age').value.trim() || '8+',
-    time: document.getElementById('f-time').value.trim() || '—',
-    servings: document.getElementById('f-servings').value.trim() || '—',
-    ingredients: document.getElementById('f-ingredients').value.split('\n').map(s=>s.trim()).filter(Boolean),
-    steps: document.getElementById('f-steps').value.split('\n').map(s=>s.trim()).filter(Boolean),
-    tips: document.getElementById('f-tips').value.trim(),
-    needsHeat: document.getElementById('f-heat').checked,
-    needsKnife: document.getElementById('f-knife').checked,
-  };
-  if(editingId){
-    const idx = recipes.findIndex(x=>x.id===editingId);
-    if(idx>-1) recipes[idx] = data;
-    showToast('Recipe updated');
-  } else {
-    recipes.unshift(data);
-    showToast('Recipe added');
-  }
-  await saveRecipes();
-  closeEdit();
-  renderGrid();
-}
-
-async function deleteRecipe(id){
-  const r = recipes.find(x=>x.id===id);
-  if(!r) return;
-  if(!confirm(`Delete "${r.title}"? This can't be undone.`)) return;
-  recipes = recipes.filter(x=>x.id!==id);
-  await saveRecipes();
-  renderGrid();
-  showToast('Recipe deleted');
-}
-
 /* ---------- Welcome / name personalization (no real auth) ---------- */
 const welcomeOverlay = document.getElementById('welcomeOverlay');
 const greetingLabel = document.getElementById('greetingLabel');
@@ -4547,9 +4389,6 @@ function remoteUsersEnabled(){
 function apiUrl(path){
   return configuredApiBaseUrl() + path;
 }
-function adminPin(){
-  return localStorage.getItem('chefcreators-admin-pin') || 'kafta';
-}
 function chefCreatorsUserToken(){
   let token=localStorage.getItem('chefcreators-user-token');
   if(!token){
@@ -4568,15 +4407,6 @@ async function saveRemoteUserRecord(user){
     });
   }catch(e){}
 }
-async function loadRemoteUsers(){
-  if(!remoteUsersEnabled()) return null;
-  try{
-    const res=await fetch(apiUrl('/api/users'),{headers:{'x-admin-pin':adminPin()}});
-    if(!res.ok) return null;
-    const data=await res.json();
-    return data.users || {};
-  }catch(e){return null}
-}
 async function loadRemoteCurrentUser(id){
   if(!remoteUsersEnabled() || !id) return null;
   try{
@@ -4585,16 +4415,6 @@ async function loadRemoteCurrentUser(id){
     const data=await res.json();
     return data.user || null;
   }catch(e){return null}
-}
-async function updateRemoteUserRecord(id, changes){
-  if(!remoteUsersEnabled() || !id) return;
-  try{
-    await fetch(apiUrl('/api/users/'+encodeURIComponent(id)),{
-      method:'PATCH',
-      headers:{'Content-Type':'application/json','x-admin-pin':adminPin()},
-      body:JSON.stringify(changes)
-    });
-  }catch(e){}
 }
 async function flagRemoteUserRecord(id, text){
   if(!remoteUsersEnabled() || !id) return;
@@ -4634,7 +4454,6 @@ function recordChefCreatorUser(profile={}){
     localStorage.setItem('chefcreators-users',JSON.stringify(u));
     saveRemoteUserRecord(u[id]);
     if(typeof window.syncChefCreatorsCurrentUserRemote === 'function') window.syncChefCreatorsCurrentUserRemote();
-    if(typeof window.renderChefCreatorsAdminUsers === 'function') window.renderChefCreatorsAdminUsers();
   }catch(e){}
 }
 
@@ -4660,7 +4479,6 @@ loadRecipes();
   const PLAN_KEY = 'chefcreators-plan';
   const USAGE_KEY = 'chefcreators-daily-usage';
   const USERS_KEY = 'chefcreators-users';
-  const ADMIN_KEY = 'chefcreators-admin-session';
 
   function todayKey(){
     const d=new Date();
@@ -4677,12 +4495,10 @@ loadRecipes();
       u[id].name=localStorage.getItem('chefcreators-name')||u[id].name||'';
       u[id].banned=!!u[id].banned;
       saveUsers(u);
-      updateRemoteUserRecord(id,{banned:u[id].banned,plan:p});
     }catch(e){}
     updatePlanUI();
     renderGrid();
     setGreeting(localStorage.getItem('chefcreators-name')||'');
-    if(typeof window.renderChefCreatorsAdminUsers === 'function') window.renderChefCreatorsAdminUsers();
   }
   function getUsage(){
     try{
@@ -4830,201 +4646,12 @@ loadRecipes();
     input.addEventListener('keydown',e=>{if(e.key==='Enter')ask()});
   }
 
-  function adminVisible(){
-    const sec=document.getElementById('adminControlsSection');
-    if(sec) sec.style.display=localStorage.getItem(ADMIN_KEY)==='1' ? 'block':'none';
-  }
-  function repairCurrentUserRecord(){
-    const id=localStorage.getItem('chefcreators-user-id');
-    const name=(localStorage.getItem('chefcreators-name')||'').trim();
-    if(!id && !name) return;
-    const all=users();
-    const userId=id || ('guest-'+Math.random().toString(36).slice(2,9));
-    if(!id) localStorage.setItem('chefcreators-user-id',userId);
-    const existing=all[userId]||{};
-    const age=Number(localStorage.getItem('chefcreators-age')||existing.age||0);
-    const ageGroup=localStorage.getItem('chefcreators-age-group')||existing.ageGroup||'';
-    if(!name && !existing.name) return;
-    if(!Number.isInteger(age) || age < 5) return;
-    all[userId]={
-      id:userId,
-      name:name || existing.name || '',
-      age:Number.isInteger(age) && age >= 5 ? age : existing.age,
-      ageGroup,
-      plan:existing.plan || getPlan(),
-      banned:!!existing.banned,
-      createdAt:existing.createdAt || Date.now(),
-      flags:Number(existing.flags||0),
-      ...(existing.lastFlag ? {lastFlag:existing.lastFlag} : {})
-    };
-    saveUsers(all);
-  }
-  function syncSavedProfileIntoUsers(){
-    const name=(localStorage.getItem('chefcreators-name')||'').trim();
-    const age=Number(localStorage.getItem('chefcreators-age')||0);
-    if(!name || !Number.isInteger(age) || age < 5) return;
-    let id=localStorage.getItem('chefcreators-user-id');
-    if(!id){
-      id='guest-'+Math.random().toString(36).slice(2,9);
-      localStorage.setItem('chefcreators-user-id',id);
-    }
-    const ageGroup=localStorage.getItem('chefcreators-age-group') || (age <= 9 ? 'young' : age <= 15 ? 'teen' : 'adult');
-    const all=users();
-    const existing=all[id]||{};
-    all[id]={
-      ...existing,
-      id,
-      userToken: chefCreatorsUserToken(),
-      name,
-      age,
-      ageGroup,
-      plan:existing.plan || getPlan(),
-      banned:!!existing.banned,
-      createdAt:existing.createdAt || Date.now(),
-      flags:Number(existing.flags||0)
-    };
-    saveUsers(all);
-    saveRemoteUserRecord(all[id]);
-  }
+  ensureUser();
+  syncCurrentUser();
+  syncCurrentUserRemote();
+  updatePlanUI();
 
-  async function renderAdminUsers(){
-    const el=document.getElementById('adminUsersList'); if(!el)return;
-    repairCurrentUserRecord();
-    syncSavedProfileIntoUsers();
-    const local=users();
-    const remote=await loadRemoteUsers();
-    const all={...local,...(remote||{})};
-    if(remote && Object.keys(remote).length) saveUsers(all);
-    const apiWarning = !remoteUsersEnabled()
-      ? '<div class="hint" style="margin:0 0 12px;color:#b00020;font-weight:800">Shared Render API is not connected yet. Add your Render API URL below to show users from every device. For now this panel can only show users saved in this browser.</div>'
-      : remote===null
-        ? '<div class="hint" style="margin:0 0 12px;color:#b00020;font-weight:800">Shared Render API is configured but could not be reached. Check the API URL, CORS_ORIGIN, and admin PIN.</div>'
-        : '';
-    const search=(document.getElementById('adminUserSearch')?.value||'').trim().toLowerCase();
-    const allRows=Object.values(all).filter(hasUserProfile).sort((a,b)=>{
-      const da=Number(a.createdAt||0), db=Number(b.createdAt||0);
-      return db-da;
-    });
-    const rows=allRows.filter(x=>{const name=String(x.name||'').toLowerCase(); const id=String(x.id||'').toLowerCase(); return !search||name.includes(search)||id.includes(search);});
-    if(!allRows.length){ el.innerHTML=apiWarning+'<p class="muted">No users with a saved name and age yet. Ask users to enter both on the main ChefCreators page, then press Refresh.</p>'; return; }
-    if(!rows.length){ el.innerHTML=apiWarning+`<p class="muted">Showing 0 of ${allRows.length} users. Clear the search to see every user.</p>`; return; }
-    el.innerHTML = rows.map(x=>{
-      const flagged = Number(x.flags||0)>0;
-      const name = String(x.name||'').trim();
-      const created = x.createdAt ? new Date(x.createdAt).toLocaleString() : '—';
-      const age = Number(x.age||0);
-      const ageLabel = Number.isInteger(age) && age >= 5 ? `Age: ${age}` : 'Age: not set';
-      const safetyStatus = flagged ? ' &middot; <span class="status-banned">Safety review needed</span>' : '';
-      return `<div class="admin-tool" style="display:flex;align-items:center;gap:14px;justify-content:space-between;margin:10px 0;padding:14px;border-radius:12px">
-        <div style="min-width:0;flex:1">
-          <strong style="font-size:16px">👤 ${escapeHtmlSafe(name || 'Unnamed user')}</strong>
-          <div class="muted" style="margin-top:3px;word-break:break-all">User ID: ${escapeHtmlSafe(x.id)}</div>
-          <div class="muted" style="margin-top:3px;font-size:12px">${escapeHtmlSafe(ageLabel)}</div>
-          <div class="muted" style="margin-top:3px;font-size:12px">Joined: ${escapeHtmlSafe(created)}</div>
-          <div style="margin-top:6px">
-            <span class="${x.banned?'status-banned':x.plan==='pro'?'status-pro':'status-free'}">${x.banned?'BANNED':x.plan==='pro'?'PRO':'FREE'}</span>
-            ${safetyStatus}
-          </div>
-        </div>
-        <button class="user-dots" data-user="${escapeAttrSafe(x.id)}" aria-label="User actions" style="border:0;background:transparent;font-size:24px;cursor:pointer;padding:6px 10px">⋯</button>
-      </div>`;
-    }).join('');
-    el.insertAdjacentHTML('afterbegin',apiWarning+`<p class="muted" style="margin:0 0 12px">Showing ${rows.length} of ${allRows.length} users.</p>`);
-
-    el.querySelectorAll('.user-dots').forEach(btn=>{
-      btn.addEventListener('click',e=>{
-        e.stopPropagation();
-        const menu=document.getElementById('adminUserMenu');
-        if(!menu)return;
-        menu.dataset.user=btn.dataset.user;
-        menu.style.display='block';
-        const r=btn.getBoundingClientRect();
-        menu.style.left=Math.max(8,Math.min(window.innerWidth-195,r.right-190))+'px';
-        menu.style.top=(r.bottom+6)+'px';
-      });
-    });
-  }
-  window.renderChefCreatorsAdminUsers=renderAdminUsers;
-
-  function escapeHtmlSafe(v){
-    return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  }
-  function escapeAttrSafe(v){ return escapeHtmlSafe(v); }
-
-  function adminActions(){
-    const menu=document.getElementById('adminUserMenu');
-    if(!menu)return;
-    menu.querySelectorAll('.admin-menu-action').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const id=menu.dataset.user, action=btn.dataset.action;
-        if(!id)return;
-        const u=users();
-        u[id]=u[id]||{id,createdAt:Date.now(),flags:0};
-        if(action==='ban'){u[id].banned=true;alert('User banned: '+id);}
-        if(action==='unban'){u[id].banned=false;alert('User unbanned: '+id);}
-        if(action==='pro'){u[id].plan='pro';u[id].banned=false;alert('Free Pro granted to '+id);}
-        if(action==='free'){u[id].plan='free';if(id===currentUser()) setPlan('free');alert('Account moved back to Free: '+id);}
-        saveUsers(u);
-        updateRemoteUserRecord(id,{banned:u[id].banned,plan:u[id].plan||'free'});
-        menu.style.display='none';
-        renderAdminUsers();
-      });
-    });
-    document.addEventListener('click',()=>{menu.style.display='none';});
-    document.getElementById('closeAdminUsersBtn')?.addEventListener('click',()=>{
-      document.getElementById('adminControlsSection').style.display='none';
-      localStorage.removeItem(ADMIN_KEY);
-    });
-  }
-
-  // Keep the admin panel protected by the existing admin PIN. If the page has an
-  // existing successful admin login, expose the new controls.
-  // Admin tools remain hidden until the site's existing admin login succeeds.
-  // Call this after a successful admin PIN login from the existing admin code.
-  window.showChefCreatorsAdminControls=function(pin){
-    if(pin) localStorage.setItem('chefcreators-admin-pin',String(pin));
-    localStorage.setItem(ADMIN_KEY,'1');
-    adminVisible();
-    renderAdminUsers();
-    document.getElementById('adminControlsSection')?.scrollIntoView({behavior:'smooth'});
-  };
-  // The admin controls are located later in the HTML, so initialize their
-  // event handlers only after the full page has loaded. This fixes the three-dot
-  // user menu actions and guarantees every stored user is rendered.
-  function initAdminControls(){
-    ensureUser();
-    syncCurrentUser();
-    syncCurrentUserRemote();
-    updatePlanUI();
-    adminVisible();
-    renderAdminUsers();
-    adminActions();
-    document.getElementById('adminRefreshUsersBtn')?.addEventListener('click',()=>{
-      const search=document.getElementById('adminUserSearch');
-      if(search) search.value='';
-      renderAdminUsers();
-    });
-    document.getElementById('adminUserSearch')?.addEventListener('input',renderAdminUsers);
-    const apiInput=document.getElementById('adminApiUrl');
-    if(apiInput) apiInput.value=remoteUsersEnabled() ? configuredApiBaseUrl() : '';
-    document.getElementById('adminSaveApiUrlBtn')?.addEventListener('click',()=>{
-      const url=(apiInput?.value||'').trim().replace(/\/$/,'');
-      if(!/^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(url)){
-        alert('Enter your Render API URL, like https://your-api-service.onrender.com');
-        return;
-      }
-      localStorage.setItem(API_URL_KEY,url);
-      syncSavedProfileIntoUsers();
-      renderAdminUsers();
-    });
-    window.addEventListener('storage',e=>{
-      if(e.key===USERS_KEY || e.key==='chefcreators-name' || e.key==='chefcreators-age') renderAdminUsers();
-    });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initAdminControls,{once:true});
-  else initAdminControls();
-
-  // Ask for browser notifications only when the admin opens this feature.
+  // Browser notifications are requested only after a user action.
   window.enableChefCreatorsSafetyNotifications=async function(){
     if('Notification' in window && Notification.permission==='default') await Notification.requestPermission();
   };
@@ -5053,35 +4680,6 @@ loadRecipes();
   </div>
   <p id="planStatus" class="muted"></p>
 </section>
-
-
-
-<section id="adminControlsSection" class="section" style="display:none;margin-top:28px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
-    <div>
-      <h2>🛡️ Admin — Users</h2>
-      <p class="muted">Manage every ChefCreators account from one page.</p>
-    </div>
-    <button class="btn ghost" id="closeAdminUsersBtn">Close Admin</button>
-  </div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px">
-    <input id="adminUserSearch" placeholder="Search by name or user ID..." style="flex:1;min-width:220px;padding:11px;border:1px solid var(--border,#ddd);border-radius:10px">
-    <button class="btn ghost" id="adminRefreshUsersBtn">Refresh users</button>
-  </div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
-    <input id="adminApiUrl" placeholder="https://your-api-service.onrender.com" style="flex:1;min-width:260px;padding:11px;border:1px solid var(--border,#ddd);border-radius:10px">
-    <button class="btn ghost" id="adminSaveApiUrlBtn">Save API URL</button>
-  </div>
-  <div id="adminUsersList" style="margin-top:18px"></div>
-</section>
-
-<div id="adminUserMenu" style="display:none;position:fixed;z-index:9999;background:var(--card,#fff);border:1px solid var(--border,#ddd);border-radius:12px;box-shadow:0 12px 35px rgba(0,0,0,.18);padding:6px;min-width:180px">
-  <button class="admin-menu-action" data-action="ban" style="display:block;width:100%;padding:10px;border:0;background:none;text-align:left;cursor:pointer">🚫 Ban user</button>
-  <button class="admin-menu-action" data-action="unban" style="display:block;width:100%;padding:10px;border:0;background:none;text-align:left;cursor:pointer">✅ Unban user</button>
-  <button class="admin-menu-action" data-action="pro" style="display:block;width:100%;padding:10px;border:0;background:none;text-align:left;cursor:pointer">⭐ Grant free Pro</button>
-  <button class="admin-menu-action" data-action="free" style="display:block;width:100%;padding:10px;border:0;background:none;text-align:left;cursor:pointer">↩ Make account Free</button>
-</div>
-
 
 
 
