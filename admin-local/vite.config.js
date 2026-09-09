@@ -2,7 +2,7 @@ import { defineConfig } from 'vite';
 import { resolve } from 'node:path';
 
 export default defineConfig({
-  root: resolve('apps/admin-local'),
+  root: resolve('admin-local'),
   build: {
     outDir: 'dist',
     emptyOutDir: true,

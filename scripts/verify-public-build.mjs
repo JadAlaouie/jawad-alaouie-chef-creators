@@ -3,7 +3,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const targets = [
-  path.join(root, 'apps/web/dist'),
+  path.join(root, 'web/dist'),
   path.join(root, 'android/app/src/main/assets/public'),
   path.join(root, 'ios/App/App/public')
 ];

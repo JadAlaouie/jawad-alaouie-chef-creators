@@ -3,7 +3,7 @@ services:
     name: chefcreators-web
     runtime: static
     buildCommand: npm run build:web
-    staticPublishPath: apps/web/dist
+    staticPublishPath: web/dist
     routes:
       - type: rewrite
         source: /*
@@ -12,7 +12,7 @@ services:
   - type: web
     name: chefcreators-api
     runtime: node
-    rootDir: apps/api
+    rootDir: api
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /health
